@@ -8,6 +8,9 @@ public:
 	static bool enableLooseFileLoad;
 	static bool enableCostumes;
 	static bool RandomCostumes;
+	static bool PrintBlueprintErrors;
 
-	static bool init();
+	static bool init(HMODULE hMod);
 };
+
+FORCEINLINE const char* const BoolToString(bool b);

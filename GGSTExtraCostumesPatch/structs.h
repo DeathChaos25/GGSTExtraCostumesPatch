@@ -11,10 +11,14 @@ typedef double f64;
 
 typedef struct
 {
-	char* Field00;
-	long Field04;
-	int Field0C;
-} SampleStruct;
+    u64 charID;
+    wchar_t* Name;
+} FCharaID;
+
+typedef struct
+{
+    FCharaID CharacterTables[40];
+} GlobalCharTables;
 
 typedef enum SIDE_ID {
     SIDE_1P = 0,

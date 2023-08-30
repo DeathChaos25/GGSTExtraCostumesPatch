@@ -4,6 +4,18 @@
 #include "config.h"
 #include <random> 
 
+auto CreateConsole = [](const char* name) {
+    FILE* ConsoleIO;
+    if (!AllocConsole())
+        return;
+
+    freopen_s(&ConsoleIO, "CONIN$", "r", stdin);
+    freopen_s(&ConsoleIO, "CONOUT$", "w", stderr);
+    freopen_s(&ConsoleIO, "CONOUT$", "w", stdout);
+
+    SetConsoleTitleA(name);
+};
+
 bool DEBUG = 0;
 
 // DNF v1.0.0 = 0x1422ef2e0
@@ -25,10 +37,12 @@ void* GetPlayerInputStage = sigScan(
 // v1.24 = 0x140d3b220
 // v1.25 = 0x140D25860
 // v1.26 = 0x140d27840
+// v1.29 = 0x140d30e90
 // v1.26 func call = 0x140d2a162
+// v1.29 func call = 0x140d33489
 void* LoadCharacterCSS_sig = sigScan(
-    "\xE8\x2A\x2A\x2A\x2A\x85\xDB\xC7\x44\x24\x2A\x00\x00\x00\x00",
-    "x????xxxxx?xxxx");
+    "\xE8\x2A\x2A\x2A\x2A\x45\x85\xED\xC7\x44\x24\x2A\x00\x00\x00\x00",
+    "x????xxxxxx?xxxx");
 
 // v1.24 = 0x140e2da40
 // v1.25 = 0x140E1A750
@@ -43,11 +57,28 @@ void* AssetSpawnPlayerBattle_Sig = sigScan(
     "\xE8\x2A\x2A\x2A\x2A\x48\x8B\x06\xB2\x01\x48\x8B\xCE\xC7\x86\x2A\x2A\x2A\x2A\x02\x00\x00\x00",
     "x????xxxxxxxxxx????xxxx");
 
+// v1.29 = 0x14151a610
+void* KismetExectueMessage_Sig = sigScan(
+    "\x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x30\x0F\xB6\xDA",
+    "xxxx?xxxxxxxx");
+
+// v1.29 = 0x140fec9cd
+void* CharaIDTableAccess = sigScan(
+    "\x48\x8D\x35\x2A\x2A\x2A\x2A\x33\xD2\x48\x8B\xD9",
+    "xxx????xxxxx");
+
+// v1.29 = 0x140bc1e90
+void* RoundResult_Sig = sigScan(
+    "\x48\x8D\x35\x2A\x2A\x2A\x2A\x33\xD2\x48\x8B\xD9",
+    "xxx????xxxxx");
+
 uint64_t CurrentBaseAddress = GetCurrentBaseAddress();
 uint64_t baseAddressGhidra = 0x140000000;
 
 UE4PlayerInput* PlayerInput1;
 UE4PlayerInput* PlayerInput2;
+
+GlobalCharTables* CharaTable;
 
 int Player1ColorID = -1;
 int Player2ColorID = -1;
@@ -83,111 +114,23 @@ bool isCharStringMatchCharID(wchar_t* Name, int PlayerSide) // online fix, lol
 
     // if (!Name) return false;
 
-    if (wcsstr(Name, L"SOL") && charaID == 0)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"KYK") && charaID == 1)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"MAY") && charaID == 2)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"AXL") && charaID == 3)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"CHP") && charaID == 4)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"POT") && charaID == 5)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"FAU") && charaID == 6)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"MLL") && charaID == 7)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"ZAT") && charaID == 8)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"RAM") && charaID == 9)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"LEO") && charaID == 10)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"NAG") && charaID == 11)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"GIO") && charaID == 12)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"ANJ") && charaID == 13)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"INO") && charaID == 14)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"GLD") && charaID == 15)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"JKO") && charaID == 16)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"COS") && charaID == 17)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"BKN") && charaID == 18)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"TST") && charaID == 19)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"BGT") && charaID == 20)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"SIN") && charaID == 21)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"BED") && charaID == 22)
-    {
-        result = true;
-    }
-    else if (wcsstr(Name, L"ASK") && charaID == 23)
-    {
-        result = true;
-    }
-    else result = false;
+    if (DEBUG) printf("isCharStringMatchCharID checking data for chara %02d\n", charaID);
 
-    if (result)
+    for (int i = 0; i < 0x22; i++)
     {
-        if (DEBUG) printf("isCharStringMatchCharID success!\n");
-    }
-    else
-    {
-        if (DEBUG) printf("isCharStringMatchCharID failure\n");
+        if (CharaTable->CharacterTables[i].charID == charaID)
+        {
+            if (wcsstr(Name, CharaTable->CharacterTables[i].Name))
+            {
+                result = true;
+                if (DEBUG) printf("isCharStringMatchCharID success! Matched %02d to %S\n", charaID, Name);
+            }
+            else
+            {
+                result = false;
+                if (DEBUG) printf("isCharStringMatchCharID failure. Got %02d which does not match %S\n", charaID, Name);
+            }
+        }
     }
 
     return result;
@@ -224,9 +167,10 @@ HOOK(uint64_t, __fastcall, hook_IsNonPakFilenameAllowed, IsNonPakFilenameAllowed
 }
 
 HOOK(void, __fastcall, hook_LoadCharacterCSS, GetAddressFromFuncCall(u64(LoadCharacterCSS_sig)),
-    u64 a1, u32 charID, u32 ColorID, u32 CostumeID, u32 PlayerID, u8 a6)
+    u64 a1, u32 charID, u32 ColorID, u32 CostumeID, u32 a5, u8 PlayerID)
 {
-    if ( a1 == 0 ) return orig_hook_LoadCharacterCSS(a1, charID, ColorID, CostumeID, PlayerID, a6);
+    // if (DEBUG) printf("CSS Function: a1 0x%llx -- a2 %d -- a3 %d -- a4 %d -- a5 %d -- a6 %d\n", a1, charID, ColorID, CostumeID, a5, PlayerID);
+    if ( a1 == 0 ) return orig_hook_LoadCharacterCSS(a1, charID, ColorID, CostumeID, a5, PlayerID);
 
     if (PlayerID == 0) // check player 1
     {
@@ -321,7 +265,7 @@ HOOK(void, __fastcall, hook_LoadCharacterCSS, GetAddressFromFuncCall(u64(LoadCha
         }
     }
 
-    return orig_hook_LoadCharacterCSS(a1, charID, ColorID, CostumeID, PlayerID, a6);
+    return orig_hook_LoadCharacterCSS(a1, charID, ColorID, CostumeID, a5, PlayerID);
 }
 
 HOOK(u64, __fastcall, hook_AssetPreloadFunctionBattle, AssetPreloadFunctionBattle,
@@ -336,12 +280,12 @@ HOOK(u64, __fastcall, hook_AssetPreloadFunctionBattle, AssetPreloadFunctionBattl
             if (isCharStringMatchCharID(a1->CharaID.Name, 1) && a1->ColorID == Player1ColorID)
             {
                 a1->CostumeID = Player1CostumeID - 1;
-                if (DEBUG) printf("AssetPreloadFunctionBattle: Applied Costume %d to P1\n", a1->CostumeID + 1);
+                printf("AssetPreloadFunctionBattle: Applied Costume %d to P1\n", a1->CostumeID + 1);
             }
             else
             {
                 OnlineP1Fix = true;
-                if (DEBUG) printf("AssetPreloadFunctionBattle: P1 character mismatch, expected char id %d color %d, received %S and %d instead\n", Player1CharID, Player1ColorID, a1->CharaID.Name, a1->ColorID);
+                printf("AssetPreloadFunctionBattle: P1 character mismatch, expected char id %d color %d, received %S and %d instead\n", Player1CharID, Player1ColorID, a1->CharaID.Name, a1->ColorID);
             }
         }
         else
@@ -364,12 +308,12 @@ HOOK(u64, __fastcall, hook_AssetPreloadFunctionBattle, AssetPreloadFunctionBattl
         if (HasPlayer2Costume)
         {
             a1->CostumeID = Player2CostumeID - 1;
-            if (DEBUG) printf("AssetPreloadFunctionBattle: Applied Costume %d to P2\n", a1->CostumeID + 1);
+            printf("AssetPreloadFunctionBattle: Applied Costume %d to P2\n", a1->CostumeID + 1);
         }
         else if (OnlineP1Fix && isCharStringMatchCharID(a1->CharaID.Name, 1) && a1->ColorID == Player1ColorID) // online fix
         {
             a1->CostumeID = Player1CostumeID - 1;
-            if (DEBUG) printf("AssetPreloadFunctionBattle: Applied Online P2 Costume Fix\n");
+            printf("AssetPreloadFunctionBattle: Applied Online P2 Costume Fix\n");
         }
         else
         {
@@ -411,11 +355,10 @@ HOOK(void, __fastcall, hook_AssetSpawnPlayerBattle, GetAddressFromFuncCall(u64(A
             if (config::RandomCostumes)
             {
                 a3->CostumeID = Player1RandCos;
-                Player1RandCos = dist(engine); // randomize for next
             }
         }
 
-        printf("P1 Costume %02d loaded\n", a3->CostumeID + 1);
+        printf("P1 Loading with Costume %d \n", a3->CostumeID + 1);
     }
     else if (a3->SideID == SIDE_2P && a3->MemberID == 0)
     {
@@ -426,7 +369,7 @@ HOOK(void, __fastcall, hook_AssetSpawnPlayerBattle, GetAddressFromFuncCall(u64(A
             a3->CostumeID = Player1CostumeID - 1;
             OnlineP1Fix = false;
             if (DEBUG) printf("AssetLoadFunctionBattle: Applied Costume %d to P2\n", a3->CostumeID + 1);
-            if (DEBUG) printf("Applied Online P2 Costume Fix\n");
+            printf("Applied Online P2 Costume Fix\n");
         }
         else if (HasPlayer2Costume)
         {
@@ -441,17 +384,34 @@ HOOK(void, __fastcall, hook_AssetSpawnPlayerBattle, GetAddressFromFuncCall(u64(A
             if (config::RandomCostumes)
             {
                 a3->CostumeID = Player2RandCos;
-                Player2RandCos = dist(engine); // randomize for next
             }
         }
 
-        printf("P2 Costume %02d loaded\n", a3->CostumeID + 1);
+        printf("P2 Loading with Costume %d \n", a3->CostumeID + 1);
 
         //Player1CostumeID = 1;
         //Player2CostumeID = 1;
     }
 
     return orig_hook_AssetSpawnPlayerBattle(a1, a2, a3);
+}
+
+HOOK(void, __stdcall, hook_KismetExectueMessage, KismetExectueMessage_Sig, u64* Message, u8 Verbosity)
+{
+    printf("[Script Msg] %S\r\n", Message);
+    return orig_hook_KismetExectueMessage(Message, Verbosity);
+}
+
+HOOK(bool, __stdcall, hook_RoundResult, RoundResult_Sig, int* a1, int* a2, bool* a3, bool* a4)
+{
+    bool result = orig_hook_RoundResult(a1, a2, a3, a4);
+
+    Player1RandCos = dist(engine);
+    Player2RandCos = dist(engine); // re-randomize random costumes
+
+    printf("Next random costumes set\n");
+
+    return result;
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -462,7 +422,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     switch (ul_reason_for_call)
     {
     case DLL_PROCESS_ATTACH:
-        config::init();
+        config::init(hModule);
 
         if ( config::enableConsole ) // open console output
         {
@@ -470,25 +430,28 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             AttachConsole(GetCurrentProcessId());
             freopen("CON", "w", stdout);
 
+            CreateConsole("GGST Costumes Patch");
+            std::cout << "Console Alloc Success" << std::endl;
+
             //printf("Current base addres is 0x%p\n", CurrentBaseAddress);
         }
 
         if (GetPlayerInputStage)
         {
             if (DEBUG) printf("Signature for GetPlayerInputStage fount at 0x%p\n", ((u64)GetPlayerInputStage - CurrentBaseAddress) + baseAddressGhidra);
-            if (DEBUG) printf("Player Input Address at 0x%p\n", GetAddressFromGlobalRef((u64)GetPlayerInputStage));
+            printf("Player Input Address at 0x%p\n", GetAddressFromGlobalRef((u64)GetPlayerInputStage));
             PlayerInput1 = (UE4PlayerInput*)GetAddressFromGlobalRef((u64)GetPlayerInputStage);
             PlayerInput2 = (UE4PlayerInput*)(GetAddressFromGlobalRef((u64)GetPlayerInputStage) + 0x2C);
         }
 
         if ( FindFileInPakFiles && ( config::enableFileAccessLog || config::enableLooseFileLoad))
         {
-            if (DEBUG) printf("Signature for FindFileInPakFiles fount at 0x%p\n", ((u64)FindFileInPakFiles - CurrentBaseAddress) + baseAddressGhidra);
+            printf("Signature for FindFileInPakFiles fount at 0x%p\n", ((u64)FindFileInPakFiles - CurrentBaseAddress) + baseAddressGhidra);
             INSTALL_HOOK(hook_FindFileInPakFiles);
         }
         else
         {
-            if (DEBUG) printf("Signature for FindFileInPakFiles broken!\n");
+            printf("Signature for FindFileInPakFiles broken!\n");
         }
 
         if ( IsNonPakFilenameAllowed && config::enableLooseFileLoad )
@@ -498,7 +461,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            if (DEBUG) printf("Signature for IsNonPakFilenameAllowed broken!\n");
+            printf("Signature for IsNonPakFilenameAllowed broken!\n");
         }
 
         if (AssetPreloadFunctionBattle && config::enableCostumes)
@@ -508,7 +471,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            if (DEBUG) printf("Signature for AssetPreloadFunctionBattle broken!\n");
+            printf("Signature for AssetPreloadFunctionBattle broken!\n");
         }
 
         if (LoadCharacterCSS_sig && config::enableCostumes)
@@ -518,7 +481,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            if (DEBUG) printf("Signature for LoadCharacterCSS_sig broken!\n");
+            printf("Signature for LoadCharacterCSS_sig broken!\n");
         }
 
         if (AssetSpawnPlayerBattle_Sig && config::enableCostumes)
@@ -528,8 +491,41 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            if (DEBUG) printf("Signature for AssetSpawnPlayerBattle_Sig broken!\n");
+            printf("Signature for AssetSpawnPlayerBattle_Sig broken!\n");
         }
+
+        if (KismetExectueMessage_Sig && config::PrintBlueprintErrors)
+        {
+            if (DEBUG) printf("Signature for KismetExectueMessage fount at 0x%p, real address at 0x%p\n", ((u64)KismetExectueMessage_Sig - CurrentBaseAddress) + baseAddressGhidra, ((u64)KismetExectueMessage_Sig - CurrentBaseAddress) + baseAddressGhidra);
+            INSTALL_HOOK(hook_KismetExectueMessage);
+        }
+        else
+        {
+            printf("Signature for KismetExectueMessage_Sig broken!\n");
+        }
+
+        if (CharaIDTableAccess)
+        {
+            if (DEBUG) printf("Signature for CharaIDTableAccess fount at 0x%p, real address at 0x%p\n", ((u64)CharaIDTableAccess - CurrentBaseAddress) + baseAddressGhidra, (GetAddressFromGlobalRef(u64(CharaIDTableAccess)) - CurrentBaseAddress) + baseAddressGhidra);
+            CharaTable = (GlobalCharTables*)GetAddressFromGlobalRef(u64(CharaIDTableAccess));
+        }
+        else
+        {
+            printf("Signature for CharaIDTableAccess broken!\n");
+        }
+
+        if (RoundResult_Sig && config::RandomCostumes)
+        {
+            if (DEBUG) printf("Signature for RoundResult fount at 0x%p\n", ((u64)RoundResult_Sig - CurrentBaseAddress) + baseAddressGhidra);
+            INSTALL_HOOK(hook_RoundResult);
+        }
+        else
+        {
+            if (!RoundResult_Sig) printf("Signature for RoundResult broken!\n");
+        }
+
+
+        config::init(hModule);
 
         return TRUE;
     case DLL_THREAD_ATTACH:
