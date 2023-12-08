@@ -30,9 +30,10 @@ void* IsNonPakFilenameAllowed = sigScan(
 
 // v1.24 = 0x14113809b
 // v1.25 = 0x141126D8B
+// v1.33 = 0x14117166c
 void* GetPlayerInputStage = sigScan(
-    "\x4C\x8D\x35\x2A\x2A\x2A\x2A\x48\x8D\x2D\x2A\x2A\x2A\x2A\x0F\x1F\x80\x00\x00\x00\x00",
-    "xxx????xxx????xxxxxxx");
+    "\x4C\x8D\x3D\x2A\x2A\x2A\x2A\x4C\x8D\x35\x2A\x2A\x2A\x2A\x66\x0F\x1F\x44\x2A\x00",
+    "xxx????xxx????xxxx?x");
 
 // v1.24 = 0x140d3b220
 // v1.25 = 0x140D25860
@@ -58,7 +59,7 @@ void* AssetSpawnPlayerBattle_Sig = sigScan(
     "x????xxxxxxxxxx????xxxx");
 
 // v1.29 = 0x14151a610
-void* KismetExectueMessage_Sig = sigScan(
+void* KismetExecuteMessage_Sig = sigScan(
     "\x48\x89\x5C\x24\x2A\x57\x48\x83\xEC\x30\x0F\xB6\xDA",
     "xxxx?xxxxxxxx");
 
@@ -69,8 +70,8 @@ void* CharaIDTableAccess = sigScan(
 
 // v1.29 = 0x140bc1e90
 void* RoundResult_Sig = sigScan(
-    "\x48\x8D\x35\x2A\x2A\x2A\x2A\x33\xD2\x48\x8B\xD9",
-    "xxx????xxxxx");
+    "\x48\x89\x5C\x24\x2A\x48\x89\x6C\x24\x2A\x48\x89\x74\x24\x2A\x57\x41\x54\x41\x55\x41\x56\x41\x57\x48\x83\xEC\x20\x48\x8B\x05\x2A\x2A\x2A\x2A\x33\xDB",
+    "xxxx?xxxx?xxxx?xxxxxxxxxxxxxxxx????xx");
 
 uint64_t CurrentBaseAddress = GetCurrentBaseAddress();
 uint64_t baseAddressGhidra = 0x140000000;
@@ -86,17 +87,21 @@ int Player1CostumeID = 1;
 int Player2CostumeID = 1;
 int Player1CharID = -1;
 int Player2CharID = -1;
-int RandCos = -1;
 bool HasPlayer1Costume = false;
 bool HasPlayer2Costume = false;
 bool OnlineP1Fix = false;
 
-std::random_device rd; // https://stackoverflow.com/questions/10710840/whats-the-standard-way-for-getting-uniformly-distributed-random-integers-in-c
-std::mt19937 engine(rd());
-std::uniform_int_distribution<int> dist(0, 4);
+int randomIntBetween(int min, int max) //range : [min, max]
+{
+    std::random_device rd; // https://stackoverflow.com/questions/10710840/whats-the-standard-way-for-getting-uniformly-distributed-random-integers-in-c
+    std::mt19937 engine(rd());
+    std::uniform_int_distribution<int> dist(min, max);
 
-int Player1RandCos = dist(engine);
-int Player2RandCos = dist(engine);
+    return dist(engine);
+}
+
+int Player1RandCos = randomIntBetween(0, 4);
+int Player2RandCos = randomIntBetween(0, 4);
 
 bool FileExists(LPCWSTR path)
 {
@@ -385,6 +390,9 @@ HOOK(void, __fastcall, hook_AssetSpawnPlayerBattle, GetAddressFromFuncCall(u64(A
             {
                 a3->CostumeID = Player2RandCos;
             }
+
+            Player1RandCos = randomIntBetween(0, 4);
+            Player2RandCos = randomIntBetween(0, 4); // re-randomize random costumes
         }
 
         printf("P2 Loading with Costume %d \n", a3->CostumeID + 1);
@@ -396,22 +404,10 @@ HOOK(void, __fastcall, hook_AssetSpawnPlayerBattle, GetAddressFromFuncCall(u64(A
     return orig_hook_AssetSpawnPlayerBattle(a1, a2, a3);
 }
 
-HOOK(void, __stdcall, hook_KismetExectueMessage, KismetExectueMessage_Sig, u64* Message, u8 Verbosity)
+HOOK(void, __stdcall, hook_KismetExecuteMessage, KismetExecuteMessage_Sig, u64* Message, u8 Verbosity)
 {
     printf("[Script Msg] %S\r\n", Message);
-    return orig_hook_KismetExectueMessage(Message, Verbosity);
-}
-
-HOOK(bool, __stdcall, hook_RoundResult, RoundResult_Sig, int* a1, int* a2, bool* a3, bool* a4)
-{
-    bool result = orig_hook_RoundResult(a1, a2, a3, a4);
-
-    Player1RandCos = dist(engine);
-    Player2RandCos = dist(engine); // re-randomize random costumes
-
-    printf("Next random costumes set\n");
-
-    return result;
+    return orig_hook_KismetExecuteMessage(Message, Verbosity);
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -436,22 +432,26 @@ BOOL APIENTRY DllMain( HMODULE hModule,
             //printf("Current base addres is 0x%p\n", CurrentBaseAddress);
         }
 
-        if (GetPlayerInputStage)
+        if (GetPlayerInputStage && config::enableCostumes)
         {
             if (DEBUG) printf("Signature for GetPlayerInputStage fount at 0x%p\n", ((u64)GetPlayerInputStage - CurrentBaseAddress) + baseAddressGhidra);
             printf("Player Input Address at 0x%p\n", GetAddressFromGlobalRef((u64)GetPlayerInputStage));
             PlayerInput1 = (UE4PlayerInput*)GetAddressFromGlobalRef((u64)GetPlayerInputStage);
             PlayerInput2 = (UE4PlayerInput*)(GetAddressFromGlobalRef((u64)GetPlayerInputStage) + 0x2C);
         }
+        else
+        {
+            if (!GetPlayerInputStage) printf("Signature GetPlayerInputStage broken!\n");
+        }
 
         if ( FindFileInPakFiles && ( config::enableFileAccessLog || config::enableLooseFileLoad))
         {
-            printf("Signature for FindFileInPakFiles fount at 0x%p\n", ((u64)FindFileInPakFiles - CurrentBaseAddress) + baseAddressGhidra);
+            if (DEBUG) printf("Signature for FindFileInPakFiles fount at 0x%p\n", ((u64)FindFileInPakFiles - CurrentBaseAddress) + baseAddressGhidra);
             INSTALL_HOOK(hook_FindFileInPakFiles);
         }
         else
         {
-            printf("Signature for FindFileInPakFiles broken!\n");
+            if (!FindFileInPakFiles) printf("Signature for FindFileInPakFiles broken!\n");
         }
 
         if ( IsNonPakFilenameAllowed && config::enableLooseFileLoad )
@@ -461,7 +461,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            printf("Signature for IsNonPakFilenameAllowed broken!\n");
+            if (!IsNonPakFilenameAllowed) printf("Signature for IsNonPakFilenameAllowed broken!\n");
         }
 
         if (AssetPreloadFunctionBattle && config::enableCostumes)
@@ -471,17 +471,17 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            printf("Signature for AssetPreloadFunctionBattle broken!\n");
+            if (!AssetPreloadFunctionBattle) printf("Signature for AssetPreloadFunctionBattle broken!\n");
         }
 
         if (LoadCharacterCSS_sig && config::enableCostumes)
         {
             if (DEBUG) printf("Signature for LoadCharacterCSS fount at 0x%p, real address at 0x%p\n", ((u64)LoadCharacterCSS_sig - CurrentBaseAddress) + baseAddressGhidra, (GetAddressFromFuncCall(u64(LoadCharacterCSS_sig)) - CurrentBaseAddress) + baseAddressGhidra);
-            INSTALL_HOOK(hook_LoadCharacterCSS);
+            if (GetPlayerInputStage) INSTALL_HOOK(hook_LoadCharacterCSS);
         }
         else
         {
-            printf("Signature for LoadCharacterCSS_sig broken!\n");
+            if (!LoadCharacterCSS_sig) printf("Signature for LoadCharacterCSS_sig broken!\n");
         }
 
         if (AssetSpawnPlayerBattle_Sig && config::enableCostumes)
@@ -491,20 +491,20 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         }
         else
         {
-            printf("Signature for AssetSpawnPlayerBattle_Sig broken!\n");
+            if (!AssetSpawnPlayerBattle_Sig) printf("Signature for AssetSpawnPlayerBattle_Sig broken!\n");
         }
 
-        if (KismetExectueMessage_Sig && config::PrintBlueprintErrors)
+        if (KismetExecuteMessage_Sig && config::PrintBlueprintErrors)
         {
-            if (DEBUG) printf("Signature for KismetExectueMessage fount at 0x%p, real address at 0x%p\n", ((u64)KismetExectueMessage_Sig - CurrentBaseAddress) + baseAddressGhidra, ((u64)KismetExectueMessage_Sig - CurrentBaseAddress) + baseAddressGhidra);
-            INSTALL_HOOK(hook_KismetExectueMessage);
+            if (DEBUG) printf("Signature for KismetExecuteMessage fount at 0x%p, real address at 0x%p\n", ((u64)KismetExecuteMessage_Sig - CurrentBaseAddress) + baseAddressGhidra, ((u64)KismetExecuteMessage_Sig - CurrentBaseAddress) + baseAddressGhidra);
+            INSTALL_HOOK(hook_KismetExecuteMessage);
         }
         else
         {
-            printf("Signature for KismetExectueMessage_Sig broken!\n");
+            if (!KismetExecuteMessage_Sig) printf("Signature for KismetExecuteMessage_Sig broken!\n");
         }
 
-        if (CharaIDTableAccess)
+        if (CharaIDTableAccess && config::enableCostumes)
         {
             if (DEBUG) printf("Signature for CharaIDTableAccess fount at 0x%p, real address at 0x%p\n", ((u64)CharaIDTableAccess - CurrentBaseAddress) + baseAddressGhidra, (GetAddressFromGlobalRef(u64(CharaIDTableAccess)) - CurrentBaseAddress) + baseAddressGhidra);
             CharaTable = (GlobalCharTables*)GetAddressFromGlobalRef(u64(CharaIDTableAccess));
@@ -512,16 +512,6 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         else
         {
             printf("Signature for CharaIDTableAccess broken!\n");
-        }
-
-        if (RoundResult_Sig && config::RandomCostumes)
-        {
-            if (DEBUG) printf("Signature for RoundResult fount at 0x%p\n", ((u64)RoundResult_Sig - CurrentBaseAddress) + baseAddressGhidra);
-            INSTALL_HOOK(hook_RoundResult);
-        }
-        else
-        {
-            if (!RoundResult_Sig) printf("Signature for RoundResult broken!\n");
         }
 
 
