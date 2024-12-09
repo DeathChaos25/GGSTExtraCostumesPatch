@@ -31,9 +31,10 @@ void* IsNonPakFilenameAllowed = sigScan(
 // v1.24 = 0x14113809b
 // v1.25 = 0x141126D8B
 // v1.33 = 0x14117166c
+// v1.33 = 0x140b123df
 void* GetPlayerInputStage = sigScan(
-    "\x4C\x8D\x3D\x2A\x2A\x2A\x2A\x4C\x8D\x35\x2A\x2A\x2A\x2A\x66\x0F\x1F\x44\x2A\x00",
-    "xxx????xxx????xxxx?x");
+    "\x48\x8D\x05\x2A\x2A\x2A\x2A\x4C\x89\x49\x2A\x4C\x03\xC0",
+    "xxx????xxx?xxx");
 
 // v1.24 = 0x140d3b220
 // v1.25 = 0x140D25860
